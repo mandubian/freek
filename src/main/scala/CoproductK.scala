@@ -373,6 +373,98 @@ trait PrependHKLower {
 }
 
 
+trait Replace[C[_] <: CoproductK[_], F[_], G[_]] {
+
+  type Out[_] <: CoproductK[_]
+
+  def replace[A](c: C[A])(nat: F ~> G): Out[A] 
+
+}
+
+object Replace extends ReplaceLower {
+
+  type Aux[C[_] <: CoproductK[_], F[_], G[_], Out0[_] <: CoproductK[_]] = Replace[C, F, G] { type Out[t] = Out0[t] }
+
+  implicit def in1[F[_], G[_]]: Replace.Aux[In1[F, ?], F, G, In1[G, ?]] = new Replace[In1[F, ?], F, G] {
+    type Out[t] = In1[G, t]
+
+    def replace[A](c: In1[F, A])(nat: F ~> G): In1[G, A] = In1(nat(c.head))
+  }
+
+  implicit def in2l[F[_], G[_], H[_]]: Replace.Aux[In2[F, G, ?], F, H, In2[H, G, ?]] = new Replace[In2[F, G, ?], F, H] {
+    type Out[t] = In2[H, G, t]
+
+    def replace[A](c: In2[F, G, A])(nat: F ~> H): In2[H, G, A] = c match {
+      case In2l(l)  => In2l(nat(l))
+      case In2r(r)  => In2r(r)
+    }
+  }
+
+  implicit def in2r[F[_], G[_], H[_]]: Replace.Aux[In2[F, G, ?], G, H, In2[F, H, ?]] = new Replace[In2[F, G, ?], G, H] {
+    type Out[t] = In2[F, H, t]
+
+    def replace[A](c: In2[F, G, A])(nat: G ~> H): In2[F, H, A] = c match {
+      case In2l(l)  => In2l(l)
+      case In2r(r)  => In2r(nat(r))
+    }
+  }
+
+  implicit def in3l[F[_], G[_], H[_], I[_]]: Replace.Aux[In3[F, G, H, ?], F, I, In3[I, G, H, ?]] = new Replace[In3[F, G, H, ?], F, I] {
+    type Out[t] = In3[I, G, H, t]
+
+    def replace[A](c: In3[F, G, H, A])(nat: F ~> I): In3[I, G, H, A] = c match {
+      case In3l(l)  => In3l(nat(l))
+      case In3m(m)  => In3m(m)
+      case In3r(r)  => In3r(r)
+    }
+  }
+
+  implicit def in3m[F[_], G[_], H[_], I[_]]: Replace.Aux[In3[F, G, H, ?], G, I, In3[F, I, H, ?]] = new Replace[In3[F, G, H, ?], G, I] {
+    type Out[t] = In3[F, I, H, t]
+
+    def replace[A](c: In3[F, G, H, A])(nat: G ~> I): In3[F, I, H, A] = c match {
+      case In3l(l)  => In3l(l)
+      case In3m(m)  => In3m(nat(m))
+      case In3r(r)  => In3r(r)
+    }
+  }
+
+  implicit def in3r[F[_], G[_], H[_], I[_]]: Replace.Aux[In3[F, G, H, ?], H, I, In3[F, G, I, ?]] = new Replace[In3[F, G, H, ?], H, I] {
+    type Out[t] = In3[F, G, I, t]
+
+    def replace[A](c: In3[F, G, H, A])(nat: H ~> I): In3[F, G, I, A] = c match {
+      case In3l(l)  => In3l(l)
+      case In3m(m)  => In3m(m)
+      case In3r(r)  => In3r(nat(r))
+    }
+  }
+
+  implicit def appendl[L[_] <: CoproductK[_], R[_] <: CoproductK[_], F[_], G[_], O[_] <: CoproductK[_]](
+    implicit rep: Replace.Aux[L, F, G, O]
+  ): Replace.Aux[AppendK[L, R, ?], F, G, AppendK[O, R, ?]] = new Replace[AppendK[L, R, ?], F, G] {
+    type Out[t] = AppendK[O, R, t]
+
+    def replace[A](c: AppendK[L, R, A])(nat: F ~> G) = c match {
+      case Aplk(l) => Aplk(rep.replace(l)(nat))
+      case Aprk(r) => Aprk(r)
+    } 
+  }
+}
+
+trait ReplaceLower {
+
+  implicit def appendr[L[_] <: CoproductK[_], R[_] <: CoproductK[_], F[_], G[_], O[_] <: CoproductK[_]](
+    implicit rep: Replace.Aux[R, F, G, O]
+  ): Replace.Aux[AppendK[L, R, ?], F, G, AppendK[L, O, ?]] = new Replace[AppendK[L, R, ?], F, G] {
+    type Out[t] = AppendK[L, O, t]
+
+    def replace[A](c: AppendK[L, R, A])(nat: F ~> G) = c match {
+      case Aplk(l) => Aplk(l)
+      case Aprk(r) => Aprk(rep.replace(r)(nat))
+    } 
+  }
+}
+
 // object CopAppend extends CopAppendLower {
 
 //   def apply[L[_] <: CoproductK[_], R[_] <: CoproductK[_]](implicit copAppend: CopAppend[L, R]): CopAppend[L, R] = copAppend

@@ -22,12 +22,23 @@ lazy val commonSettings = Seq(
 
 )
 
-lazy val root = (project in file(".")).
-  settings(commonSettings: _*).
-  settings(
+lazy val steep = project.in(file("steep"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "steep",
+    scalacOptions ++= Seq(
+      "-feature"
+    , "-language:higherKinds"
+    )
+  )
+
+lazy val root = project.in(file("."))
+  .settings(commonSettings: _*)
+  .settings(
     name := "freek",
     scalacOptions ++= Seq(
       "-feature"
     , "-language:higherKinds"
     )
   )
+  .aggregate(steep)
